@@ -24,13 +24,25 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var sys = require('util');
+var rest = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var URL_DEFAULT = "http://sheltered-waters-6037.herokuapp.com"
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
     if(!fs.existsSync(instr)) {
         console.log("%s does not exist. Exiting.", instr);
+        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
+    }
+    return instr;
+};
+
+var assertUrlSpecified = function(url) {
+    var instr = url.toString();
+    if(instr.length <= 0 ) {
+        console.log("Heorku App url is not provided. Exiting.");
         process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
     }
     return instr;
@@ -65,10 +77,20 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <app_url>', 'Heroku App Url', clone(assertUrlSpecified), URL_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    
+    //Load the URL
+    rest.get(program.url).on('complete', function(result) {
+        if (result instanceof Error) {
+          console.log('Failed to Read From URL: %s' , program.url);
+        } else {
+          fs.writeFileSync('out.html', result);
+          var checkJson = checkHtmlFile('out.html', program.checks);
+          var outJson = JSON.stringify(checkJson, null, 4);
+          console.log(outJson);
+        }
+      });
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
